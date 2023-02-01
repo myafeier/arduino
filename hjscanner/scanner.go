@@ -39,7 +39,7 @@ func InitScanner(dev string) (scanner *Scanner, err error) {
 	}
 	err = scanner.Connect()
 	if err != nil {
-		log.Error("扫描仪连接失败：%s", err.Error())
+		log.Error("ard connect fail：%s", err.Error())
 		return
 	}
 	go scanner.Daemon()
@@ -112,7 +112,7 @@ func (s *Scanner) Connect() (err error) {
 	} else {
 		s.SetState(ScannerStatusOfConnecting)
 	}
-	log.Debug("尝试连接")
+	log.Debug("trying connect ard...")
 	cfg := new(serial.Config)
 	cfg.Name = s.Port
 	cfg.Baud = 115200
@@ -122,7 +122,7 @@ func (s *Scanner) Connect() (err error) {
 		log.Error(err.Error())
 		return
 	} else {
-		log.Debug("端口已打开")
+		log.Debug("ard opened")
 		s.SetState(ScannerStatusOfOk)
 	}
 	return nil
@@ -135,9 +135,8 @@ func (s *Scanner) Daemon() {
 		select {
 		case <-s.reconn:
 			//重试连接
-			log.Debug("begin connect")
 			if err := s.Connect(); err != nil {
-				log.Error("scanner重试连接失败:%s", err.Error())
+				log.Error("arduino重试连接失败:%s", err.Error())
 			}
 		}
 	}
@@ -150,7 +149,7 @@ func (s *Scanner) RunInstruction(instruction Instruction, params ...interface{})
 	state := s.GetState()
 	if state != ScannerStatusOfOk && InstructionOfInit.Req != instruction.Req {
 		s.reconn <- true
-		err = errors.WithStack(fmt.Errorf("设备状态异常:(%s),请检查连接或稍后重试", s.Status.String()))
+		err = errors.WithStack(fmt.Errorf("ard设备状态异常:(%s),请检查连接或稍后重试", s.Status.String()))
 		return
 	}
 	s.Watcher = append(s.Watcher, instruction.respChan)
@@ -186,14 +185,14 @@ func (s *Scanner) Read() (err error) {
 	}()
 	state := s.GetState()
 	if state != ScannerStatusOfOk {
-		err = fmt.Errorf("扫描仪状态(%s)异常", s.Status.String())
+		err = fmt.Errorf("ard状态(%s)异常", s.Status.String())
 		return
 	}
 
 	scanner := bufio.NewScanner(s.Conn)
 	for scanner.Scan() {
 		resp := scanner.Text()
-		log.Debug("scaned: %s", resp)
+		log.Debug("ard resp: %s", resp)
 		for _, w := range s.Watcher {
 			w <- resp
 		}

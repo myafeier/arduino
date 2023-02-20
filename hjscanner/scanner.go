@@ -37,11 +37,13 @@ func InitScanner(dev string) (scanner *Scanner, err error) {
 		Port:   dev,
 		reconn: make(chan bool),
 	}
-	err = scanner.Connect()
-	if err != nil {
-		log.Error("ard connect fail：%s", err.Error())
-		return
-	}
+	/*
+		err = scanner.Connect()
+		if err != nil {
+			log.Error("ard connect fail：%s", err.Error())
+			return
+		}
+	*/
 	go scanner.Daemon()
 
 	return
@@ -199,6 +201,37 @@ func (s *Scanner) Read() (err error) {
 	}
 	if err = scanner.Err(); err != nil {
 		log.Error(err.Error())
+	}
+	return
+}
+
+func RunInstruction(cmd string, params []interface{}) (err error) {
+	switch cmd {
+	case "test":
+		_, err = DefaultScaner.RunInstruction(InstructionOfTestComminution, params...)
+	case "init":
+		_, err = DefaultScaner.RunInstruction(InstructionOfInit, params...)
+	case "move":
+		_, err = DefaultScaner.RunInstruction(InstructionOfMoveXY, params...)
+	case "zoom":
+		_, err = DefaultScaner.RunInstruction(InstructionOfMoveZ, params...)
+	case "diskin":
+		_, err = DefaultScaner.RunInstruction(InstructionOfMoveIn, params...)
+	case "diskout":
+		_, err = DefaultScaner.RunInstruction(InstructionOfMoveOut, params...)
+	case "openlaser":
+		_, err = DefaultScaner.RunInstruction(InstructionOfOpenLaser, params...)
+	case "closelaser":
+		_, err = DefaultScaner.RunInstruction(InstructionOfCloseLaser, params...)
+	case "pointMove":
+		if len(params) != 2 {
+			err = fmt.Errorf("invalid params")
+			return
+		}
+		_, err = DefaultScaner.RunInstruction(InstructionOfMoveXY, int(params[0].(float64)), int(params[1].(float64)))
+
+	default:
+		err = fmt.Errorf("unsupported instruction")
 	}
 	return
 }

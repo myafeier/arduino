@@ -26,9 +26,19 @@ const (
 
 var DefaultScaner *Scanner
 
-func InitDefaultScanner() (err error) {
+func InitDefaultScanner() (sn string, err error) {
 	dev := "/dev/hjscaner"
 	DefaultScaner, err = InitScanner(dev)
+	if err != nil {
+		return
+	}
+	sn, err = DefaultScaner.RunInstruction(InstructionOfReadMachineSn)
+	snSlice := bytes.Split([]byte(sn), []byte{':'})
+	if len(snSlice) == 2 {
+		sn = hex.EncodeToString(snSlice[1])
+	} else {
+		sn = "undefined"
+	}
 	return
 }
 
@@ -37,13 +47,10 @@ func InitScanner(dev string) (scanner *Scanner, err error) {
 		Port:   dev,
 		reconn: make(chan bool),
 	}
-	/*
-		err = scanner.Connect()
-		if err != nil {
-			log.Error("ard connect fail：%s", err.Error())
-			return
-		}
-	*/
+	err = scanner.Connect()
+	if err != nil {
+		return
+	}
 	go scanner.Daemon()
 
 	return
@@ -121,8 +128,7 @@ func (s *Scanner) Connect() (err error) {
 	s.Conn, err = serial.OpenPort(cfg)
 	if err != nil {
 		s.SetState(ScannerStatusOfLost)
-		log.Error(err.Error())
-		return
+		return errors.WithStack(err)
 	} else {
 		log.Debug("ard opened")
 		s.SetState(ScannerStatusOfOk)
@@ -132,16 +138,18 @@ func (s *Scanner) Connect() (err error) {
 
 // 后台监控进程
 func (s *Scanner) Daemon() {
-	go s.Read()
 	for {
 		select {
 		case <-s.reconn:
 			//重试连接
 			if err := s.Connect(); err != nil {
 				log.Error("arduino重试连接失败:%s", err.Error())
+				continue
 			}
+			go s.Read()
 		}
 	}
+	go s.Read()
 }
 
 // 运行指令
@@ -185,11 +193,6 @@ func (s *Scanner) Read() (err error) {
 			s.reconn <- true
 		}
 	}()
-	state := s.GetState()
-	if state != ScannerStatusOfOk {
-		err = fmt.Errorf("ard状态(%s)异常", s.Status.String())
-		return
-	}
 
 	scanner := bufio.NewScanner(s.Conn)
 	for scanner.Scan() {

@@ -138,6 +138,7 @@ func (s *Scanner) Connect() (err error) {
 
 // 后台监控进程
 func (s *Scanner) Daemon() {
+	go s.Read()
 	for {
 		select {
 		case <-s.reconn:
@@ -149,7 +150,6 @@ func (s *Scanner) Daemon() {
 			go s.Read()
 		}
 	}
-	go s.Read()
 }
 
 // 运行指令

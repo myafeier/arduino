@@ -194,6 +194,8 @@ func (s Instruction) compile(param ...interface{}) (bytes []byte, err error) {
 			x = float64(param[0].(float32))
 		case float64:
 			x = param[0].(float64)
+		case int:
+			x = float64(param[0].(int))
 		default:
 			err = fmt.Errorf("invalid param type")
 			err = errors.WithStack(err)
@@ -211,6 +213,9 @@ func (s Instruction) compile(param ...interface{}) (bytes []byte, err error) {
 			y = float64(param[1].(float32))
 		case float64:
 			y = param[1].(float64)
+		case int:
+			x = float64(param[1].(int))
+
 		default:
 			err = fmt.Errorf("invalid param type")
 			err = errors.WithStack(err)

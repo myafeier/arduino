@@ -27,7 +27,7 @@ const (
 var DefaultScaner *Scanner
 
 func InitDefaultScanner() (sn string, err error) {
-	dev := "/dev/hjscaner"
+	dev := "/dev/hjscanner"
 	DefaultScaner, err = InitScanner(dev)
 	if err != nil {
 		return
@@ -226,12 +226,6 @@ func RunInstruction(cmd string, params []interface{}) (err error) {
 		_, err = DefaultScaner.RunInstruction(InstructionOfOpenLaser, params...)
 	case "closelaser":
 		_, err = DefaultScaner.RunInstruction(InstructionOfCloseLaser, params...)
-	case "pointMove":
-		if len(params) != 2 {
-			err = fmt.Errorf("invalid params")
-			return
-		}
-		_, err = DefaultScaner.RunInstruction(InstructionOfMoveXY, int(params[0].(float64)), int(params[1].(float64)))
 
 	default:
 		err = fmt.Errorf("unsupported instruction")

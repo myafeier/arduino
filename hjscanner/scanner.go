@@ -76,12 +76,11 @@ func (s ScannerStatus) String() string {
 const InstructionTimeout = 10 * time.Second //指令执行超时时间
 
 type Scanner struct {
-	Port        string             `json:"port,omitempty"` //设备USB端口
-	Conn        io.ReadWriteCloser `json:"-"`
-	Status      ScannerStatus      `json:"status,omitempty"`
-	reconn      chan bool          `json:"-"`
-	Watcher     []chan string      `json:"watcher,omitempty"`
-	keepReading bool               `json:"-"`
+	Port    string             `json:"port,omitempty"` //设备USB端口
+	Conn    io.ReadWriteCloser `json:"-"`
+	Status  ScannerStatus      `json:"status,omitempty"`
+	reconn  chan bool          `json:"-"`
+	Watcher []chan string      `json:"watcher,omitempty"`
 }
 
 // 尝试初始化设备并返回设备编码
@@ -117,12 +116,6 @@ func (s *Scanner) SetState(state ScannerStatus) {
 }
 
 func (s *Scanner) Connect() (err error) {
-	state := s.GetState()
-	if state == ScannerStatusOfOk {
-		return
-	} else {
-		s.SetState(ScannerStatusOfConnecting)
-	}
 	log.Debug("trying connect ard...")
 	cfg := new(serial.Config)
 	cfg.Name = s.Port
@@ -134,8 +127,8 @@ func (s *Scanner) Connect() (err error) {
 	} else {
 		log.Debug("ard opened")
 		s.SetState(ScannerStatusOfOk)
+		return nil
 	}
-	return nil
 }
 
 // 后台监控进程
@@ -150,7 +143,7 @@ func (s *Scanner) Daemon() {
 				log.Error("arduino重试连接失败:%s", err.Error())
 				continue
 			}
-			if !s.keepReading {
+			if s.Status == ScannerStatusOfLost {
 				go s.Read()
 			}
 		}
@@ -164,6 +157,7 @@ func (s *Scanner) RunInstruction(instruction Instruction, params ...interface{})
 	state := s.GetState()
 	if state != ScannerStatusOfOk && InstructionOfInit.Req != instruction.Req {
 		s.reconn <- true
+		s.SetState(ScannerStatusOfLost)
 		err = errors.WithStack(fmt.Errorf("ard设备状态异常:(%s),请检查连接或稍后重试", s.Status.String()))
 		return
 	}
@@ -181,6 +175,7 @@ func (s *Scanner) RunInstruction(instruction Instruction, params ...interface{})
 	}()
 	if resp, err = instruction.DoWithTimeout(s.Conn, ctx, params...); err != nil {
 		if strings.Contains(err.Error(), "input/output error") {
+			s.SetState(ScannerStatusOfLost)
 			s.reconn <- true
 			err = fmt.Errorf("扫描仪设备输入输出错误，请检查电缆是否连接正确")
 		}
@@ -199,12 +194,10 @@ func (s *Scanner) Read() (err error) {
 		readMutex.Unlock()
 		if err != nil {
 			log.Error(err.Error())
-			s.keepReading = false
+			s.SetState(ScannerStatusOfLost)
 			s.reconn <- true
 		}
 	}()
-	s.keepReading = true
-
 	scanner := bufio.NewScanner(s.Conn)
 	for scanner.Scan() {
 		resp := scanner.Text()

@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -75,11 +76,12 @@ func (s ScannerStatus) String() string {
 const InstructionTimeout = 10 * time.Second //指令执行超时时间
 
 type Scanner struct {
-	Port    string             `json:"port,omitempty"` //设备USB端口
-	Conn    io.ReadWriteCloser `json:"-"`
-	Status  ScannerStatus      `json:"status,omitempty"`
-	reconn  chan bool          `json:"-"`
-	Watcher []chan string      `json:"watcher,omitempty"`
+	Port        string             `json:"port,omitempty"` //设备USB端口
+	Conn        io.ReadWriteCloser `json:"-"`
+	Status      ScannerStatus      `json:"status,omitempty"`
+	reconn      chan bool          `json:"-"`
+	Watcher     []chan string      `json:"watcher,omitempty"`
+	keepReading bool               `json:"-"`
 }
 
 // 尝试初始化设备并返回设备编码
@@ -142,12 +144,15 @@ func (s *Scanner) Daemon() {
 	for {
 		select {
 		case <-s.reconn:
+			log.Debug("重试连接arduino")
 			//重试连接
 			if err := s.Connect(); err != nil {
 				log.Error("arduino重试连接失败:%s", err.Error())
 				continue
 			}
-			go s.Read()
+			if !s.keepReading {
+				go s.Read()
+			}
 		}
 	}
 }
@@ -175,6 +180,10 @@ func (s *Scanner) RunInstruction(instruction Instruction, params ...interface{})
 
 	}()
 	if resp, err = instruction.DoWithTimeout(s.Conn, ctx, params...); err != nil {
+		if strings.Contains(err.Error(), "input/output error") {
+			s.reconn <- true
+			err = fmt.Errorf("扫描仪设备输入输出错误，请检查电缆是否连接正确")
+		}
 		log.Error(err.Error())
 		return
 	}
@@ -190,9 +199,11 @@ func (s *Scanner) Read() (err error) {
 		readMutex.Unlock()
 		if err != nil {
 			log.Error(err.Error())
+			s.keepReading = false
 			s.reconn <- true
 		}
 	}()
+	s.keepReading = true
 
 	scanner := bufio.NewScanner(s.Conn)
 	for scanner.Scan() {

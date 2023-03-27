@@ -122,10 +122,11 @@ func (s *Scanner) Connect() (err error) {
 	cfg.Baud = 115200
 	s.Conn, err = serial.OpenPort(cfg)
 	if err != nil {
+		log.Debug("trying connect fail:%s", err.Error())
 		s.SetState(ScannerStatusOfLost)
 		return errors.WithStack(err)
 	} else {
-		log.Debug("ard opened")
+		log.Debug("arduino connected")
 		s.SetState(ScannerStatusOfOk)
 		return nil
 	}
@@ -134,18 +135,28 @@ func (s *Scanner) Connect() (err error) {
 // 后台监控进程
 func (s *Scanner) Daemon() {
 	go s.Read()
+	reconnecting := false
 	for {
 		select {
 		case <-s.reconn:
+			log.Debug("收到重连信号")
+			if reconnecting {
+				continue
+			} else {
+				reconnecting = true
+			}
 			log.Debug("重试连接arduino")
 			//重试连接
 			if err := s.Connect(); err != nil {
-				log.Error("arduino重试连接失败:%s", err.Error())
-				continue
-			}
-			if s.Status == ScannerStatusOfLost {
+				log.Error("arduitrueno重试连接失败:%s", err.Error())
+				go func() {
+					time.Sleep(1 * time.Second)
+					s.reconn <- true
+				}()
+			} else if s.Status == ScannerStatusOfLost {
 				go s.Read()
 			}
+			reconnecting = false
 		}
 	}
 }

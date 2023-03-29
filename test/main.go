@@ -5,7 +5,12 @@ import (
 	"fmt"
 
 	"github.com/myafeier/arduino/hjscanner"
+	"github.com/myafeier/log"
 )
+
+func init() {
+	log.SetLogLevel(log.DEBUG)
+}
 
 func main() {
 	cmd := flag.String("cmd", "", "input instruction you want!")
@@ -14,10 +19,11 @@ func main() {
 	if *cmd == "" {
 		panic("no param ")
 	}
-	err := hjscanner.InitDefaultScanner()
+	sn, err := hjscanner.InitDefaultScanner()
 	if err != nil {
 		panic(err)
 	}
+	fmt.Println(sn)
 	switch *cmd {
 	case "move":
 		doMove()

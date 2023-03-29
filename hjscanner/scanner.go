@@ -214,7 +214,6 @@ func (s *Scanner) Read() {
 			reader = bufio.NewReader(s.Conn)
 		default:
 			time.Sleep(1 * time.Millisecond)
-			fmt.Printf(".")
 			if bytes, _, err := reader.ReadLine(); err != nil {
 				if err != io.EOF {
 					log.Error("读取Arduino失败： %s", err.Error())

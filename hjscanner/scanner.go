@@ -76,11 +76,12 @@ func (s ScannerStatus) String() string {
 const InstructionTimeout = 10 * time.Second //指令执行超时时间
 
 type Scanner struct {
-	Port    string             `json:"port,omitempty"` //设备USB端口
-	Conn    io.ReadWriteCloser `json:"-"`
-	Status  ScannerStatus      `json:"status,omitempty"`
-	reconn  chan bool          `json:"-"`
-	Watcher []chan string      `json:"watcher,omitempty"`
+	Port        string             `json:"port,omitempty"` //设备USB端口
+	Conn        io.ReadWriteCloser `json:"-"`
+	Status      ScannerStatus      `json:"status,omitempty"`
+	reconn      chan bool          `json:"-"` //开始重连
+	reconnected chan bool          `json:"-"` //重联成功
+	Watcher     []chan string      `json:"watcher,omitempty"`
 }
 
 // 尝试初始化设备并返回设备编码
@@ -153,8 +154,8 @@ func (s *Scanner) Daemon() {
 					time.Sleep(1 * time.Second)
 					s.reconn <- true
 				}()
-			} else if s.Status == ScannerStatusOfLost {
-				go s.Read()
+			} else {
+				s.reconnected <- true
 			}
 			reconnecting = false
 		}
@@ -199,28 +200,34 @@ func (s *Scanner) RunInstruction(instruction Instruction, params ...interface{})
 var readMutex sync.Mutex
 
 // 从连接读取消息，发送给观察者
-func (s *Scanner) Read() (err error) {
+func (s *Scanner) Read() {
 	readMutex.Lock()
 	defer func() {
 		readMutex.Unlock()
-		if err != nil {
-			log.Error(err.Error())
-			s.SetState(ScannerStatusOfLost)
-			s.reconn <- true
-		}
 	}()
-	scanner := bufio.NewScanner(s.Conn)
-	for scanner.Scan() {
-		resp := scanner.Text()
-		log.Debug("ard resp: %s", resp)
-		for _, w := range s.Watcher {
-			w <- resp
+	reader := bufio.NewReader(s.Conn)
+
+	for {
+		select {
+		case <-s.reconnected:
+			log.Debug("reset readbuffer")
+			reader = bufio.NewReader(s.Conn)
+		default:
+			time.Sleep(1 * time.Millisecond)
+			fmt.Printf(".")
+			if bytes, _, err := reader.ReadLine(); err != nil {
+				if err != io.EOF {
+					log.Error("读取Arduino失败： %s", err.Error())
+				}
+			} else {
+				log.Debug("read:  %s \n", bytes)
+				for _, w := range s.Watcher {
+					w <- string(bytes)
+				}
+			}
 		}
 	}
-	if err = scanner.Err(); err != nil {
-		log.Error(err.Error())
-	}
-	return
+
 }
 
 func RunInstruction(cmd string, params []interface{}) (err error) {

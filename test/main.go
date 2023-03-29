@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 
 	"github.com/myafeier/arduino/hjscanner"
@@ -13,29 +12,32 @@ func init() {
 }
 
 func main() {
-	cmd := flag.String("cmd", "", "input instruction you want!")
-
-	flag.Parse()
-	if *cmd == "" {
-		panic("no param ")
-	}
 	sn, err := hjscanner.InitDefaultScanner()
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(sn)
-	switch *cmd {
-	case "move":
-		doMove()
-	case "zoom":
-		doZoom()
-	case "pop":
-		doPop()
-	case "push":
-		doPush()
-	case "off":
-		doLaseroff()
+	fmt.Printf("device connected: %s \n", sn)
+
+	var cmd string
+	for {
+		fmt.Println("input your cmd:")
+		if _, err := fmt.Scanln(&cmd); err != nil {
+			panic(err)
+		}
+		switch cmd {
+		case "move":
+			doMove()
+		case "zoom":
+			doZoom()
+		case "pop":
+			doPop()
+		case "push":
+			doPush()
+		case "off":
+			doLaseroff()
+		}
 	}
+
 }
 func doLaseroff() {
 	hjscanner.DefaultScaner.RunInstruction(hjscanner.InstructionOfCloseLaser, "green")

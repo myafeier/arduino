@@ -45,8 +45,9 @@ func InitDefaultScanner() (sn string, err error) {
 
 func InitScanner(dev string) (scanner *Scanner, err error) {
 	scanner = &Scanner{
-		Port:   dev,
-		reconn: make(chan bool),
+		Port:        dev,
+		reconn:      make(chan bool),
+		reconnected: make(chan bool),
 	}
 	err = scanner.Connect()
 	if err != nil {
@@ -156,6 +157,7 @@ func (s *Scanner) Daemon() {
 				}()
 			} else {
 				s.reconnected <- true
+				log.Debug("已发送连接成功信号")
 			}
 			reconnecting = false
 		}

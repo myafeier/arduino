@@ -211,6 +211,9 @@ var readMutex sync.Mutex
 
 // 从连接读取消息，发送给观察者
 func (s *Scanner) Read() {
+	if WithoutHardWare {
+		return
+	}
 	readMutex.Lock()
 	defer func() {
 		readMutex.Unlock()

@@ -26,6 +26,7 @@ const (
 )
 
 var DefaultScaner *Scanner
+var WithHardWare bool = true //是否脱机测试
 
 func InitDefaultScanner() (sn string, err error) {
 	dev := "/dev/hjscanner"
@@ -118,6 +119,10 @@ func (s *Scanner) SetState(state ScannerStatus) {
 }
 
 func (s *Scanner) Connect() (err error) {
+	if !WithHardWare {
+		s.SetState(ScannerStatusOfOk)
+		return
+	}
 	log.Debug("trying connect ard...")
 	cfg := new(serial.Config)
 	cfg.Name = s.Port
@@ -168,6 +173,9 @@ func (s *Scanner) Daemon() {
 //
 //	一个指令发送后，会通过daemon监控运行结果，或超时返回error
 func (s *Scanner) RunInstruction(instruction Instruction, params ...interface{}) (resp string, err error) {
+	if !WithHardWare {
+		return "脱机指令不执行,返回成功", nil
+	}
 	state := s.GetState()
 	if state != ScannerStatusOfOk && InstructionOfInit.Req != instruction.Req {
 		s.reconn <- true

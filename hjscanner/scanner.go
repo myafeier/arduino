@@ -203,7 +203,6 @@ func (s *Scanner) RunInstruction(instruction Instruction, params ...interface{})
 	}
 	s.Watcher = append(s.Watcher, instruction.respChan)
 
-Retry:
 	ctx, cancelFunc := context.WithTimeout(context.Background(), InstructionTimeout)
 	defer func() {
 		cancelFunc() //如果
@@ -217,7 +216,6 @@ Retry:
 	}()
 	if resp, err = instruction.DoWithTimeout(s.Conn, ctx, params...); err != nil {
 		log.Error(err.Error())
-
 		if strings.Contains(err.Error(), "input/output error") {
 			s.SetState(ScannerStatusOfLost)
 			s.reconn <- true
@@ -225,13 +223,6 @@ Retry:
 		} else if strings.Contains(err.Error(), "指令执行超时") {
 			s.SetState(ScannerStatusOfLost)
 			s.reconn <- true
-			// 等待重新连接机器直至成功
-			for {
-				time.Sleep(1 * time.Second)
-				if s.Status == ScannerStatusOfOk {
-					goto Retry
-				}
-			}
 		}
 	}
 	return

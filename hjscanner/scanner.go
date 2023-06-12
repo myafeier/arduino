@@ -87,6 +87,27 @@ type Scanner struct {
 }
 
 // 尝试初始化设备并返回设备编码
+func (s *Scanner) InitDefaultScanner() (sn string, err error) {
+	_, err = s.RunInstruction(InstructionOfInit)
+	if err != nil {
+		log.Error(err.Error())
+		return
+	}
+	sn, err = DefaultScaner.RunInstruction(InstructionOfReadMachineSn)
+	if err != nil {
+		log.Error(err.Error())
+		return
+	}
+	snSlice := bytes.Split([]byte(sn), []byte{':'})
+	if len(snSlice) == 2 {
+		sn = hex.EncodeToString(snSlice[1])
+	} else {
+		sn = "undefined"
+	}
+	return
+}
+
+// 尝试初始化设备并返回设备编码
 func (s *Scanner) Init() (sn string, err error) {
 	_, err = s.RunInstruction(InstructionOfInit)
 	if err != nil {
@@ -173,9 +194,6 @@ func (s *Scanner) Daemon() {
 //
 //	一个指令发送后，会通过daemon监控运行结果，或超时返回error
 func (s *Scanner) RunInstruction(instruction Instruction, params ...interface{}) (resp string, err error) {
-	if WithoutHardWare {
-		return "脱机指令不执行,返回成功", nil
-	}
 	state := s.GetState()
 	if state != ScannerStatusOfOk && InstructionOfInit.Req != instruction.Req {
 		s.reconn <- true
@@ -195,14 +213,26 @@ func (s *Scanner) RunInstruction(instruction Instruction, params ...interface{})
 		}
 
 	}()
+
+Retry:
 	if resp, err = instruction.DoWithTimeout(s.Conn, ctx, params...); err != nil {
+		log.Error(err.Error())
+
 		if strings.Contains(err.Error(), "input/output error") {
 			s.SetState(ScannerStatusOfLost)
 			s.reconn <- true
 			err = fmt.Errorf("扫描仪设备输入输出错误，请检查电缆是否连接正确")
+		} else if strings.Contains(err.Error(), "指令执行超时") {
+			s.SetState(ScannerStatusOfLost)
+			s.reconn <- true
+			// 等待重新连接机器直至成功
+			for {
+				time.Sleep(1 * time.Second)
+				if s.Status == ScannerStatusOfOk {
+					goto Retry
+				}
+			}
 		}
-		log.Error(err.Error())
-		return
 	}
 	return
 }

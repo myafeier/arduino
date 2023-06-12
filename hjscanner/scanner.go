@@ -202,6 +202,8 @@ func (s *Scanner) RunInstruction(instruction Instruction, params ...interface{})
 		return
 	}
 	s.Watcher = append(s.Watcher, instruction.respChan)
+
+Retry:
 	ctx, cancelFunc := context.WithTimeout(context.Background(), InstructionTimeout)
 	defer func() {
 		cancelFunc() //如果
@@ -213,8 +215,6 @@ func (s *Scanner) RunInstruction(instruction Instruction, params ...interface{})
 		}
 
 	}()
-
-Retry:
 	if resp, err = instruction.DoWithTimeout(s.Conn, ctx, params...); err != nil {
 		log.Error(err.Error())
 

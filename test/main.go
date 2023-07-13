@@ -33,13 +33,37 @@ func main() {
 			doPop()
 		case "push":
 			doPush()
-		case "off":
-			doLaseroff()
+		case "laser":
+			doLaser()
 		}
 	}
 
 }
-func doLaseroff() {
+func doLaser() {
+	for {
+		var x string
+		fmt.Println("input red or green or off:")
+		fmt.Scanf("%s", &x)
+		switch x {
+		case "red", "green":
+			res, err := hjscanner.DefaultScaner.RunInstruction(hjscanner.InstructionOfOpenLaser, x)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+			fmt.Println("resp: ", res)
+		case "off":
+			res, err := hjscanner.DefaultScaner.RunInstruction(hjscanner.InstructionOfCloseLaser)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+			fmt.Println("resp: ", res)
+		default:
+			return
+		}
+
+	}
 	hjscanner.DefaultScaner.RunInstruction(hjscanner.InstructionOfCloseLaser, "green")
 }
 func doPop() {

@@ -75,7 +75,7 @@ func (s ScannerStatus) String() string {
 	}
 }
 
-const InstructionTimeout = 10 * time.Second //指令执行超时时间
+const InstructionTimeout = 30 * time.Second //指令执行超时时间
 
 type Scanner struct {
 	Port        string             `json:"port,omitempty"` //设备USB端口
